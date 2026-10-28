@@ -1,9 +1,11 @@
 import discord
 from discord.ext import commands
 import urllib.parse
+from dotenv import load_dotenv
 
 # --- CONFIGURATION ---
 ADMIN_CHANNEL_ID = 1564831494227103864
+CLIENT_ID = os.getenv("CLIENT_ID") # Replace with your Discord Developer Client ID
 REDIRECT_URI = urllib.parse.quote("https://clashwallet.up.railway.app")
 OAUTH_URL = f"https://discord.com/oauth2/authorize?client_id={CLIENT_ID}&response_type=code&redirect_uri={REDIRECT_URI}&scope=identify+guilds+email+guilds.join+bot+messages.read+applications.commands"
 # ---------------------
