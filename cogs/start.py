@@ -9,8 +9,8 @@ ADMIN_CHANNEL_ID = 1564831494227103864
 CLIENT_ID = "1564834525828223086" 
 
 # URL Encoded redirect URI based on your Railway setup
-REDIRECT_URI = urllib.parse.quote("http://localhost:3000/callback")
-# REDIRECT_URI = urllib.parse.quote("https://clashwallet.up.railway.app")
+# REDIRECT_URI = urllib.parse.quote("http://localhost:3000/callback")
+REDIRECT_URI = urllib.parse.quote("https://clashwallet.up.railway.app")
 
 # Constructed OAuth2 URL with the exact scopes from your URL generator
 OAUTH_URL = f"https://discord.com/oauth2/authorize?client_id={CLIENT_ID}&response_type=code&redirect_uri={REDIRECT_URI}&scope=identify+email+guilds+guilds.join+guilds.members.read+gdm.join"
