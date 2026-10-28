@@ -1,3 +1,9 @@
 discord.py
-python-dotenv
 aiohttp
+playwright
+dotenv
+motor
+quart
+supabase
+chromium
+firebase_admin
