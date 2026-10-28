@@ -1,5 +1,3 @@
-fastapi
-uvicorn
-httpx
-pynacl
+discord.py
 python-dotenv
+aiohttp
