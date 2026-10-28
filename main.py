@@ -5,6 +5,8 @@ import discord
 
 # Directly import the working bot instance from your unchanged war_tracker file
 from bot_instance import bot
+from page import run_web_server
+
 # Import the web server task from your new page.py file
 
 # Set intents before anything else logs in
@@ -31,7 +33,7 @@ async def dynamic_setup_hook():
     
     # START THE WEB SERVER HERE
     print("[System] Launching web dashboard server...")
-    # bot.loop.create_task(run_web_server())
+    bot.loop.create_task(run_web_server())
 
 # Dynamically link the setup hook to your working bot
 bot.setup_hook = dynamic_setup_hook
