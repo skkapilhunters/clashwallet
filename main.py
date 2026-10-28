@@ -1,36 +1,55 @@
-import discord
-from discord.ext import commands
 import os
+import asyncio
 from dotenv import load_dotenv
-from views.verification import StartVerifyView, OpenFormView
-from web_server import start_server
+import discord
+
+# Directly import the working bot instance from your unchanged war_tracker file
+from bot_instance import bot
+# Import the web server task from your new page.py file
+
+# Set intents before anything else logs in
+bot.intents.members = True
 
 load_dotenv()
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
-class MyBot(commands.Bot):
-    def __init__(self):
-        # Default intents on karke bot setup kar rahe hain
-        super().__init__(command_prefix="!", intents=discord.Intents.default())
+async def dynamic_setup_hook():
+    """Runs once before the bot connects. Loads cogs and starts the web server safely."""
+    print("-----------------------------------------------------")
+    print("[System] Scanning 'cogs' folder for future functions...")
+    
+    if os.path.exists("./cogs"):
+        for filename in os.listdir("./cogs"):
+            if filename.endswith(".py") and not filename.startswith("__"):
+                cog_name = f"cogs.{filename[:-3]}"
+                try:
+                    await bot.load_extension(cog_name)
+                    print(f"📦 Successfully connected future module: {cog_name}")
+                except Exception as e:
+                    print(f"❌ Failed to load {cog_name}: {e}")
+    print("-----------------------------------------------------")
+    
+    # START THE WEB SERVER HERE
+    print("[System] Launching web dashboard server...")
+    # bot.loop.create_task(run_web_server())
 
-    async def setup_hook(self):
-        # Views ko persistent banana taki bot restart hone par bhi buttons kaam karein
-        self.add_view(StartVerifyView())
-        self.add_view(OpenFormView())
-        
-        # Cogs load karna
-        await self.load_extension("cogs.welcome")
-        
-        # Slash commands ko Discord se sync karna
-        await self.tree.sync()
-        
-        # Web server start karna (Railway pe success page dikhane ke liye)
-        await start_server()
+# Dynamically link the setup hook to your working bot
+bot.setup_hook = dynamic_setup_hook
 
-    async def on_ready(self):
-        print(f"✅ Logged in as {self.user} (ID: {self.user.id})")
-        print("🟢 Bot is now ONLINE!")
-
-bot = MyBot()
+@bot.event
+async def on_ready():
+    print(f"✅ {bot.user.name} is online and connected to Discord!")
+    
+    # Let's set the initial status to IDLE right when it signs in.
+    # It tells Discord: "I am connected, but I am resting/waiting."
+    await bot.change_presence(
+        status=discord.Status.idle, 
+        activity=discord.Game(name="Watching for updates... 👀")
+    )
+    print("[System] Bot status set to: Idle")
 
 if __name__ == "__main__":
-    bot.run(os.getenv("DISCORD_TOKEN"))
+    if not DISCORD_TOKEN:
+        print("[Critical Error] DISCORD_TOKEN is missing from your .env file!")
+    else:
+        bot.run(DISCORD_TOKEN)
