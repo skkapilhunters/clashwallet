@@ -194,7 +194,7 @@ class SetupWelcome(commands.Cog):
         print(f"🤖 Logged in as {self.bot.user}")
 
     @commands.command()
-    @commands.has_permissions(administrator=Y) if 'Y' else commands.has_permissions(administrator=True)
+    @commands.has_permissions(administrator=True)
     async def setupwelcome(self, ctx):
         embed = discord.Embed(
             description="**Welcome to Clash Wallet!** 👋\n\nWe’re thrilled to have you as part of our community! To help you get settled and find your way around, please take a look below:\n\n> 📜 ┃ ** Press Start Verification and Proceed  **\n\n> If you have any questions or need assistance, feel free to reach out to our team at any time. \n> **Have fun and enjoy your stay!** 🚀",
